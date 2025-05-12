@@ -1,39 +1,32 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+import React from "react";
+import { Stack } from "expo-router";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
+    <Stack>
+      <Stack.Screen name="index" options={{title: 'Home'}}/>
+      <Stack.Screen name="sign_up" options={{title: "Sign Up"}}/>
+      <Stack.Screen name="welcome" options={{title: "Welcome"}}/>
+      <Stack.Screen name="complete_profile" options={{title: "Profile"}}/>
+      <Stack.Screen name="dashboard" options={{title: "Dashboard"}}/>
+      <Stack.Screen name="Skill_matches" options={{title: "Skill"}}/>
+      <Stack.Screen name="Skill_matches/[id]" options={{title: "Skill"}}/>
+      <Stack.Screen name="buy_tokens" options={{title: "Buy Tokens"}}/>
+      <Stack.Screen name="token_wallet" options={{title: "Your wallet"}}/>
+      <Stack.Screen name="payment" options={{title: "Payment"}}/>
+      <Stack.Screen name="logout." options={{title: "log out"}}/>
+      <Stack.Screen name="buyPrimiumTokens" options={{title: "Buy Premium Tokens"}}/>
+      <Stack.Screen name="ChatScreen" options={{title: "Chat"}} />
+       <Stack.Screen name="MessagesTab" options={{title: "Message"}} />
+       <Stack.Screen name="transactionHistory" options={{title: "Transaction History"}} />
+       <Stack.Screen name="bookingScreen" options={{title: "Book a Session"}} />
+       <Stack.Screen name="notificationScreen" options={{title: "Notification"}} />
+
+
+      
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+  )
 }
+
+
+////  8:20   20:20
