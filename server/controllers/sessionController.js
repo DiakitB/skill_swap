@@ -3,29 +3,46 @@ const PendingTokenTransfer = require('../models/pendingTokenTransfer');
 const User = require('../models/user');
 const Notification = require('../models/notification');
 
+// const User = require('../models/User');
+// const PendingTokenTransfer = require('../models/PendingTokenTransfer');
+// const MatchingSession = require('../models/MatchingSession');
+// const Notification = require('../models/Notification');
+
 exports.bookSession = async (req, res) => {
-  const { teacherId, skill, tokenAmount, learnerId , scheduledTime} = req.body;
+  const { teacherId, skill, tokenAmount, learnerId, scheduledTime } = req.body;
+  console.log("Booking session with data:", req.body); // Log the received data
 
   if (!teacherId || !skill || !tokenAmount || tokenAmount <= 0) {
+    console.error('Missing or invalid data:', { teacherId, skill, tokenAmount, learnerId, scheduledTime });
     return res.status(400).json({ message: 'Missing or invalid data' });
   }
 
   try {
     const learner = await User.findById(learnerId);
     const teacher = await User.findById(teacherId);
-    if (!learner || !teacher) return res.status(404).json({ message: 'User not found' });
-    if (learner.tokenBalance < tokenAmount) return res.status(400).json({ message: 'Insufficient tokens' });
+
+    if (!learner || !teacher) {
+      console.error('User not found:', { learnerId, teacherId });
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (learner.premiumTokenBalance < tokenAmount) {
+      console.error('Insufficient tokens:', { learnerId, tokenAmount, balance: learner.premiumTokenBalance });
+      return res.status(400).json({ message: 'Insufficient tokens' });
+    }
 
     // Deduct tokens from learner and hold them
-    learner.tokenBalance -= tokenAmount;
+    console.log("Learner token balance before:", learner.premiumTokenBalance);
+    learner.premiumTokenBalance -= tokenAmount;
     await learner.save();
 
     const pendingTransfer = new PendingTokenTransfer({
       fromUser: learnerId,
       toUser: teacherId,
-      tokenAmount, // Use tokenAmount here
+      tokenAmount,
       description: `Teaching session for ${skill}`,
     });
+    console.log("Pending transfer created:", pendingTransfer);
     await pendingTransfer.save();
 
     const session = new MatchingSession({
@@ -33,21 +50,29 @@ exports.bookSession = async (req, res) => {
       teacher: teacherId,
       skill,
       pendingTransferId: pendingTransfer._id,
+      scheduledTime,
     });
     await session.save();
+
     // Notify teacher about the new session
     await Notification.create({
-      user: teacherId, // recipient
-      message: `${learner.name} booked a session with you on ${scheduledTime}  for ${skill}.`,
+      user: teacherId,
+      message: `${learner.name} booked a session with you on ${scheduledTime} for ${skill}.`,
     });
-    
-    res.status(201).json({ message: 'Session created. Tokens held.', session });
+
+    res.status(201).json({
+      message: 'Session created. Tokens held.',
+      session,
+      updatedLearner: {
+        id: learner._id,
+        premiumTokenBalance: learner.premiumTokenBalance,
+      },
+    });
   } catch (err) {
-    console.error(err);
+    console.error('Server error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 
 exports.confirmSession = async (req, res) => {
     const { sessionId } = req.body;

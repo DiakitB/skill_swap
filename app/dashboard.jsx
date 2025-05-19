@@ -5,34 +5,40 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Animated,
+  Easing,
   Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import Feather from 'react-native-vector-icons/Feather';
+import Ionicons from 'react-native-vector-icons/Ionicons';// Import Ionicons for the notification icon
 
 const GETME_URL = 'http://192.168.2.40:3000/api/users/me';
 const LOG_OUT_URL = 'http://192.168.2.40:3000/api/auth/logout';
 
+const Card = ({ title, children, style }) => (
+  <View style={[styles.card, style]}>
+    <Text style={styles.cardTitle}>{title}</Text>
+    {children}
+  </View>
+);
+
 export default function UserDashboard() {
   const [user, setUser] = useState(null);
   const [location, setLocation] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0); // State for unread notifications
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [fadeAnim] = useState(new Animated.Value(0));
   const navigation = useNavigation();
 
   const handleLogout = async () => {
     try {
       const authToken = await AsyncStorage.getItem('authToken');
-      if (!authToken) {
-        navigation.navigate('login');
-        return;
-      }
-
+      if (!authToken) return navigation.navigate('login');
       await axios.post(LOG_OUT_URL, {}, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
-
       await AsyncStorage.removeItem('authToken');
       navigation.navigate('login');
     } catch (err) {
@@ -40,30 +46,32 @@ export default function UserDashboard() {
     }
   };
 
+  const fetchUser = async () => {
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      if (!authToken) return navigation.navigate('login');
+
+      const res = await axios.get(GETME_URL, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const fetchedUser = res.data?.data?.user;
+      if (!fetchedUser) return navigation.navigate('login');
+      setUser(fetchedUser);
+
+      // Smooth animation with scale and opacity
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000, // Increased duration
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: false, // Enable native driver
+      }).start();
+    } catch (err) {
+      if (err.response?.status === 401) navigation.navigate('login');
+      else console.error('User fetch error:', err.response?.data || err.message);
+    }
+  };
+
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const authToken = await AsyncStorage.getItem('authToken');
-        if (!authToken) {
-          navigation.navigate('login');
-          return;
-        }
-
-        const res = await axios.get(GETME_URL, {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
-
-        const fetchedUser = res.data?.data?.user;
-        console.log('Fetched user:', fetchedUser);
-        if (fetchedUser) {
-          setUser(fetchedUser);
-        }
-      } catch (err) {
-        if (err.response?.status === 401) navigation.navigate('login');
-        else console.error('User fetch error:', err.response?.data || err.message);
-      }
-    };
-
     fetchUser();
   }, [navigation]);
 
@@ -79,7 +87,6 @@ export default function UserDashboard() {
       const response = await axios.get(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
       );
-      console.log('Location response:', response.data);
       const { city, town, village, country } = response.data.address;
       setLocation({
         city: city || town || village || 'Unknown City',
@@ -90,27 +97,19 @@ export default function UserDashboard() {
     }
   };
 
-  // Fetch unread notifications count
   useEffect(() => {
     const fetchUnreadNotifications = async () => {
       try {
         const authToken = await AsyncStorage.getItem('authToken');
-        if (!authToken) {
-          navigation.navigate('login');
-          return;
-        }
-  
+        if (!authToken) return navigation.navigate('login');
         const response = await axios.get('http://192.168.2.40:3000/api/notifications/unread-count', {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-  
-        const data = response.data;
-        setUnreadCount(data.count || 0); // Ensure `data.count` is the number of unread notifications
+        setUnreadCount(response.data.count || 0);
       } catch (error) {
         console.error('Failed to fetch notifications:', error);
       }
     };
-  
     fetchUnreadNotifications();
   }, [navigation]);
 
@@ -118,141 +117,333 @@ export default function UserDashboard() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          style={styles.bellContainer}
-          onPress={async () => {
-            try {
-              // Navigate to the notification screen
-              navigation.navigate('notificationScreen');
+        <View style={styles.headerRightContainer}>
+          {/* Notification Bell */}
+          <TouchableOpacity
+            style={styles.bellContainer}
+            onPress={async () => {
+              try {
+                // Navigate to the notification screen
+                navigation.navigate('notificationScreen');
   
-              // Mark all notifications as read
-              const authToken = await AsyncStorage.getItem('authToken');
-              if (authToken) {
-                await axios.patch('http://192.168.2.40:3000/api/notifications/mark-all-read', {}, {
-                  headers: { Authorization: `Bearer ${authToken}` },
-                });
+                // Mark all notifications as read
+                const authToken = await AsyncStorage.getItem('authToken');
+                if (authToken) {
+                  await axios.patch('http://192.168.2.40:3000/api/notifications/mark-all-read', {}, {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                  });
   
-                // Fetch the updated unread count
-                const response = await axios.get('http://192.168.2.40:3000/api/notifications/unread-count', {
-                  headers: { Authorization: `Bearer ${authToken}` },
-                });
-                setUnreadCount(response.data.count || 0);
+                  // Fetch the updated unread count
+                  const response = await axios.get('http://192.168.2.40:3000/api/notifications/unread-count', {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                  });
+                  setUnreadCount(response.data.count || 0);
+                  console.log('Notifications marked as read:', response.data.count || 0);
+                }
+              } catch (error) {
+                console.error('Failed to mark notifications as read:', error);
               }
-            } catch (error) {
-              console.error('Failed to mark notifications as read:', error);
-            }
-          }}
-        >
-          <Ionicons name="notifications-outline" size={24} color="black" />
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+            }}
+          >
+            <Ionicons name="notifications-outline" size={24} color="yellow" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+  
+          {/* Logout Button */}
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Feather name="log-out" size={24} color="#ff595e" />
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [navigation, unreadCount]);
+
+  
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUser(); // Fetch updated user data when the screen is focused
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const getCardBackgroundColor = (type, value) => {
+    if (type === 'skills') {
+      return value.length > 0 ? '#d1f7c4' : '#f7d1d1'; // Green for non-empty, red for empty
+    }
+    if (type === 'tokens') {
+      if (value > 50) return '#c4f1f7'; // Light blue for high balance
+      if (value > 20) return '#f7e1c4'; // Yellow for medium balance
+      return '#f7d1d1'; // Red for low balance
+    }
+    return '#fff'; // Default white
+  };
+
   if (!user) return <Text style={styles.loading}>Loading Dashboard...</Text>;
 
   return (
-    <View style={styles.wrapper}>
-      <TouchableOpacity style={styles.logout} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          opacity: fadeAnim,
+          transform: [
+            {
+              scale: fadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.9, 1], // Scale from 90% to 100%
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 80 }]}>
+        <Text style={styles.welcome}>Hey {user.name}! 👋</Text>
+        <Text style={styles.location}>
+          {location?.city}, {location?.country}
+        </Text>
 
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.greeting}>👋  {user.name || 'User'}</Text>
+        <Card
+          title="🎯 Skills Offered"
+          style={{
+            backgroundColor: getCardBackgroundColor(
+              'skills',
+              user.profile.skillsOffered || []
+            ),
+          }}
+        >
+          <Text style={styles.cardContent}>
+            {user.profile.skillsOffered?.join(', ') || 'No skills added yet'}
+          </Text>
+        </Card>
 
-        <View style={[styles.card, styles.tokenBox]}>
-          <Text style={styles.tokenLabel}>💰 Token Balance:</Text>
-          <Text style={styles.tokenValue}>{user.premiumTokenBalance || 0} tokens</Text>
-        </View>
+        <Card
+          title="🎯 Skills Wanted"
+          style={{
+            backgroundColor: getCardBackgroundColor(
+              'skills',
+              user.profile.skillsWanted || []
+            ),
+          }}
+        >
+          <Text style={styles.cardContent}>
+            {user.profile.skillsWanted?.join(', ') || 'No skills selected yet'}
+          </Text>
+        </Card>
+
+        <Card
+          title="💎 Premium Tokens"
+          style={{
+            backgroundColor: getCardBackgroundColor(
+              'tokens',
+              user.premiumTokenBalance
+            ),
+          }}
+        >
+          <Text style={styles.tokenAmount}>{user.premiumTokenBalance}</Text>
+        </Card>
 
         <View style={styles.tokenRow}>
-          <TouchableOpacity style={[styles.tokenBtn, { backgroundColor: '#3B82F6' }]} onPress={() => navigation.navigate('buyPrimiumTokens')}>
+          <TouchableOpacity
+            style={[styles.tokenBtn, { backgroundColor: '#3B82F6' }]}
+            onPress={() => navigation.navigate('buyPrimiumTokens')}
+          >
             <Text style={styles.tokenBtnText}>Buy Tokens</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.tokenRow}>
-          <TouchableOpacity style={[styles.tokenBtn, { backgroundColor: '#F59E0B' }]} onPress={() => navigation.navigate('transfer_tokens')}>
+          <TouchableOpacity
+            style={[styles.tokenBtn, { backgroundColor: '#F59E0B' }]}
+            onPress={() => navigation.navigate('transfer_tokens')}
+          >
             <Text style={styles.tokenBtnText}>Transfer Tokens</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.tokenRow}>
-          <TouchableOpacity style={[styles.tokenBtn, { backgroundColor: '#8B5CF6' }]} onPress={() => navigation.navigate('transactionHistory')}>
+          <TouchableOpacity
+            style={[styles.tokenBtn, { backgroundColor: '#8B5CF6' }]}
+            onPress={() => navigation.navigate('transactionHistory')}
+          >
             <Text style={styles.tokenBtnText}>Transaction History</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.tokenBtn, { backgroundColor: '#10B981' }]} onPress={() => navigation.navigate('premium_features')}>
+          <TouchableOpacity
+            style={[styles.tokenBtn, { backgroundColor: '#10B981' }]}
+            onPress={() => navigation.navigate('premium_features')}
+          >
             <Text style={styles.tokenBtnText}>Premium Features</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.card}><Text style={styles.label}>📅 Availability</Text><Text style={styles.detail}>{user.profile?.availability || 'Not specified'}</Text></View>
-
-        <View style={styles.card}><Text style={styles.label}>📍 Location</Text><Text style={styles.detail}>{location ? `${location.city}, ${location.country}` : 'Fetching location...'}</Text></View>
-
-        <View style={styles.card}><Text style={styles.label}>🛠️ Skills Offered</Text>{user.profile?.skillsOffered?.length ? user.profile.skillsOffered.map((skill, i) => <Text key={i} style={styles.skill}>{skill}</Text>) : <Text style={styles.skill}>No skills listed</Text>}</View>
-
-        <View style={styles.card}><Text style={styles.label}>🎯 Skills Wanted</Text>{user.profile?.skillsWanted?.length ? user.profile.skillsWanted.map((skill, i) => <Text key={i} style={styles.skill}>{skill}</Text>) : <Text style={styles.skill}>No skills listed</Text>}</View>
-
-        <View style={styles.card}>
-          <Text style={styles.label}>🔗 Social Links</Text>
-          {user.profile?.socialLinks ? (
-            <>
-              {user.profile.socialLinks.facebook && <Text style={styles.link} onPress={() => Linking.openURL(user.profile.socialLinks.facebook)}>Facebook</Text>}
-              {user.profile.socialLinks.twitter && <Text style={styles.link} onPress={() => Linking.openURL(user.profile.socialLinks.twitter)}>Twitter</Text>}
-              {user.profile.socialLinks.linkedin && <Text style={styles.link} onPress={() => Linking.openURL(user.profile.socialLinks.linkedin)}>LinkedIn</Text>}
-            </>
-          ) : <Text style={styles.detail}>No links added</Text>}
-        </View>
-
-        <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('EditProfile')}>
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={() => navigation.navigate('EditProfile')}
+        >
           <Text style={styles.editBtnText}>Edit Profile</Text>
         </TouchableOpacity>
       </ScrollView>
 
       <View style={styles.tabBar}>
         <TouchableOpacity style={styles.navBtn} onPress={() => navigation.navigate('skill_matches')}>
+          <Feather name="users" size={20} color="#0077b6" />
           <Text style={styles.navText}>Matches</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navBtn} onPress={() => navigation.navigate('MessagesTab', { user })}>
+          <Feather name="message-circle" size={20} color="#0077b6" />
           <Text style={styles.navText}>Messages</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navBtn} onPress={() => navigation.navigate('Explore')}>
+        <TouchableOpacity style={styles.navBtn} onPress={() => navigation.navigate('exploreScreen')}>
+          <Feather name="search" size={20} color="#0077b6" />
           <Text style={styles.navText}>Explore</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: '#F9FAFB' },
-  logout: { position: 'absolute', top: 20, right: 20, backgroundColor: '#EF4444', padding: 8, borderRadius: 8, zIndex: 10 },
-  logoutText: { color: '#fff', fontWeight: '600' },
-  scrollContainer: { flexGrow: 1, padding: 24 },
-  greeting: { fontSize: 26, fontWeight: 'bold', color: '#111827', marginBottom: 24 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
-  label: { fontSize: 16, fontWeight: '600', color: '#4B5563', marginBottom: 4 },
-  detail: { fontSize: 15, color: '#6B7280' },
-  skill: { fontSize: 15, color: '#10B981', marginTop: 4 },
-  link: { fontSize: 15, color: '#3B82F6', textDecorationLine: 'underline', marginTop: 4 },
-  tokenBox: { backgroundColor: '#E0F2FE', borderWidth: 1, borderColor: '#38BDF8', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  tokenLabel: { fontSize: 16, fontWeight: '600', color: '#0369A1' },
-  tokenValue: { fontSize: 18, fontWeight: '700', color: '#0284C7' },
-  tokenRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  tokenBtn: { flex: 1, padding: 12, borderRadius: 12, alignItems: 'center', marginHorizontal: 4 },
-  tokenBtnText: { color: '#fff', fontWeight: '600' },
-  editBtn: { backgroundColor: '#6366F1', padding: 14, borderRadius: 12, alignItems: 'center', marginVertical: 30 },
-  editBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  loading: { fontSize: 18, textAlign: 'center', marginTop: 50, color: '#6B7280' },
-  tabBar: { flexDirection: 'row', justifyContent: 'space-around', padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#e5e7eb' },
-  navBtn: { alignItems: 'center' },
-  navText: { fontSize: 14, color: '#4B5563', fontWeight: '600' },
-  bellContainer: { marginRight: 16, position: 'relative' },
-  badge: { position: 'absolute', top: -5, right: -5, backgroundColor: 'yellow', borderRadius: 10, paddingHorizontal: 5, paddingVertical: 2 },
-  badgeText: { fontSize: 12, fontWeight: 'bold', color: 'black' },
+  icont_text: {
+    fontSize: 12,
+    color: 'white',
+    marginTop: 4,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#f4f9ff',
+  },
+  scroll: {
+    padding: 20,
+    paddingBottom: 80, // Ensures content doesn't overlap with the tab bar
+  },
+  loading: {
+    fontSize: 20,
+    marginTop: 100,
+    textAlign: 'center',
+    color: '#555',
+  },
+  welcome: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1c1c1c',
+    marginBottom: 8,
+  },
+  location: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#333',
+  },
+  cardContent: {
+    fontSize: 16,
+    color: '#444',
+  },
+  tokenAmount: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#0077b6',
+    marginTop: 4,
+  },
+  tokenRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  tokenBtn: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  tokenBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  editBtn: {
+    backgroundColor: '#0077b6',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  editBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  logoutButton: {
+    marginLeft: 16,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    elevation: 5,
+  },
+  navBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navText: {
+    fontSize: 12,
+    color: '#0077b6',
+    marginTop: 4,
+  },
+  bellContainer: {
+    marginRight: 16,
+  },
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  bellContainer: {
+    marginRight: 16,
+    position: 'relative', // Ensure the badge is positioned relative to the bell icon
+  },
+  badge: {
+    position: 'absolute',
+    top: -5, // Adjust to position the badge above the bell icon
+    right: -5, // Adjust to position the badge to the right of the bell icon
+    backgroundColor: 'red',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  logoutButton: {
+    marginLeft: 16,
+  },
 });

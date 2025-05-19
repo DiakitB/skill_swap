@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Modal, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Button, Modal, StyleSheet, Platform, TouchableOpacity, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,30 +24,38 @@ export default function BookSessionScreen() {
       Alert.alert('Error', 'Teacher ID is missing.');
       return;
     }
-
+  
+    const payload = {
+      teacherId,
+      skill,
+      teacherName,
+      learnerId,
+      scheduledTime: selectedDate,
+      tokenAmount: parseInt(amount),
+    };
+  
+    console.log('Booking Payload:', payload); // Log the payload
+  
     try {
       const token = await AsyncStorage.getItem('authToken');
       const res = await axios.post(
         'http://192.168.2.40:3000/api/sessions/book',
-        {
-          teacherId,
-          skill,
-          teacherName,
-          learnerId,
-          scheduledTime: selectedDate,
-          tokenAmount: parseInt(amount),
-        },
+        payload,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
-      setIsModalVisible(true); // Show the modal on successful booking
+  
+      const { updatedLearner } = res.data;
+  
+      setIsModalVisible(true);
+  
+      navigation.navigate('dashboard', { updatedTokenBalance: updatedLearner.premiumTokenBalance });
     } catch (error) {
+      console.error('Booking Error:', error.response?.data || error.message);
       Alert.alert('Booking Failed', error.response?.data?.message || 'Try again');
     }
   };
-
   const renderDateTimePicker = () => {
     if (Platform.OS === 'web') {
       return (

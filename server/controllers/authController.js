@@ -107,7 +107,7 @@ exports.logout = async (req, res) => {
 
 exports.protect = async (req, res, next) => {
   let token;
-
+  console.log("Authorization Header:", req.headers); // Debug log
   // 1) Check if token exists in headers
   if (
     req.headers.authorization &&

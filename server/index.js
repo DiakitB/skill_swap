@@ -9,7 +9,7 @@ const tokenRoutes = require('./routes/tokenRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-
+const skillRoutes = require('./routes/skillsRoutes'); // Import the skill routes
 const app = express();
 
 // Ensure DATABASE is defined
@@ -25,8 +25,8 @@ app.use(express.json());
 // Database Connection
 const DB = process.env.MONGODB_URI || process.env.DATABASE;
 mongoose.connect(DB, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
+    // useNewUrlParser: true,
+    // useUnifiedTopology: true
 }).then(() => console.log("✅ Connected to MongoDB"))
 .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
@@ -37,6 +37,7 @@ app.use('/api/tokens', tokenRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/skills', skillRoutes); // Use the skill routes
 
 // Start Server
 const PORT = process.env.PORT || 3000;

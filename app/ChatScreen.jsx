@@ -18,6 +18,7 @@ const BASE_URL = 'http://192.168.2.40:3000/api/messages'; // Adjust the base URL
 const ChatScreen = () => {
   const route = useRoute(); // Use useRoute to access route parameters
   const { userId, username } = route.params || {}; // Safely access route.params
+  console.log('ChatScreen route params:', route.params); // Debug log
   const [messages, setMessages] = useState([]);
   const [content, setContent] = useState('');
   const flatListRef = useRef(null);

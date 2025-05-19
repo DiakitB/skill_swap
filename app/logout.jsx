@@ -3,12 +3,13 @@ import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LogoutScreen = () => {
+const LogoutScreen = ({ setUser }) => { // Pass setUser as a prop
   const navigation = useNavigation();
 
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem('authToken'); // Clear the token from storage
+      setUser(null); // Clear the user state
       Alert.alert('Success', 'Logout successful');
       navigation.navigate('Login'); // Redirect to login screen
     } catch (error) {

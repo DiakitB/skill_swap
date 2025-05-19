@@ -9,7 +9,7 @@ exports.sendMessage = async (req, res) => {
   console.log('Content:', content);
   console.log(req.body);
   const sender = req.user.id;
- console.log("hello Bick how can suck your dick?")
+
   try {
     const message = await Message.create({ sender, receiver, content });
     res.status(201).json(message);
@@ -21,10 +21,16 @@ exports.sendMessage = async (req, res) => {
 
 // Get messages between two users
 exports.getMessages = async (req, res) => {
-  console.log(req.body)
- 
-  const userId = req.user.id;
-  const otherUserId = req.params.userId;
+  console.log("Request body:", req.body);
+  console.log("Request user:", req.user);
+  console.log("Request params:", req.params);
+
+  const userId = req.user?.id;
+  const otherUserId = req.params?.userId;
+
+  if (!userId || !otherUserId) {
+    return res.status(400).json({ error: "Missing userId or otherUserId" });
+  }
 
   try {
     const messages = await Message.find({
@@ -36,7 +42,8 @@ exports.getMessages = async (req, res) => {
 
     res.status(200).json(messages);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch messages TESTING  THIS ERROR MESSAGE IS COMING FROM getMessage controller' });
+    console.error("Error fetching messages:", error);
+    res.status(500).json({ error: "Failed to fetch messages" });
   }
 };
 

@@ -27,7 +27,7 @@ const LoginScreen = () => {
   
     try {
       const res = await axios.post(URL, { email, password });
-      console.log(res.data);
+      // console.log(res.data);
   
       if (res.status === 200) {
         await AsyncStorage.setItem('authToken', res.data.token);

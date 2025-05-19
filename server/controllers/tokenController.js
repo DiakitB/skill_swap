@@ -23,6 +23,7 @@ exports.getTokenBalance = async (req, res) => {
 
 
 exports.initiateTokenTransfer = async (req, res) => {
+  console.log('Initiating token transfer...'); // Debugging line
   const { toUserId, amount, description } = req.body;
   const fromUserId = req.user.id;
 
